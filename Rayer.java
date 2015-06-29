@@ -36,6 +36,9 @@ public class Rayer {
 					case KeyEvent.VK_F3:
 						saveImage();
 						break;
+					case KeyEvent.VK_ESCAPE:
+						System.exit(0);
+						break;
 				}
 			};
 		});
@@ -257,6 +260,9 @@ class Scene {
 	public String toString() {
 		String result = "Scene {\n";
 		result += ("\t"+camera.toString()+"\n");
+		for(Light light: lights) {
+			result += ("\t"+light.toString()+"\n");
+		}
 		for(SceneObject object: objects) {
 			result += ("\t"+object.toString()+"\n");
 		}
@@ -376,8 +382,12 @@ class Light extends SceneObject {
 
 	public Light(Vector3d position) {
 		super(position);
-		this.type = "Point Light";
+		this.type = "Light";
 		color = Color.WHITE; // default
+	}
+
+	public String toString() {
+		return "Light (position: "+position+")";
 	}
 }
 
