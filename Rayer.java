@@ -66,6 +66,13 @@ public class Rayer {
 	
 	private void initDummyScene() {
 		scene = new Scene();
+		
+		Camera camera = new Camera(new Vector3d(0, 0, -10));
+		camera.setFOV(80, 80);
+		scene.setCamera(camera);
+
+		Light light = new Light(new Vector3d(-20, 20, -50));
+		scene.addLight(light);
 
 		Sphere sphere = new Sphere(new Vector3d(1, 0, 0), 2);
 		scene.addObject(sphere);
@@ -143,16 +150,23 @@ public class Rayer {
 			RayHit hit = hits.get(0);
 			
 			Color diffuse = hit.object.material.diffuse;
-
-			// TODO normal is irrelevant for lambert, should use light direction
-			//      for now light is directly at camera
-			float factor = (float) Math.min(Math.max(hit.ray.direction.scale(-1).dot(hit.normal), 0.0), 1.0);
+			
+			double red = 0;
+			double green = 0;
+			double blue = 0;
+			for(Light light: scene.getLights()) {
+				float factor = (float) light.position.sub(hit.position).normalize().dot(hit.normal);
+				red += (diffuse.getRed()*factor);
+				green += (diffuse.getGreen()*factor);
+				blue += (diffuse.getBlue()*factor);
+			}
+		
 			color = new Color(
-				(int) (diffuse.getRed()*factor),
-				(int) (diffuse.getGreen()*factor),
-				(int) (diffuse.getBlue()*factor)
+				(int) (Math.max(Math.min(red, 255), 0)),
+				(int) (Math.max(Math.min(green, 255), 0)),
+				(int) (Math.max(Math.min(blue, 255), 0))
 			);
-//			System.out.println("factor: "+factor+", color red: "+color.getRed());
+//			System.out.println("color: "+color);
 		} else {
 			// TODO background?
 			color = Color.BLACK;
@@ -206,12 +220,14 @@ public class Rayer {
 
 class Scene {
 	private Vector<SceneObject> objects;
-	
 	private Camera camera;
-	
+	private Vector<Light> lights;
+
 	public Scene() {
 		objects = new Vector<SceneObject>();
-		camera = new Camera(new Vector3d(0, 0, -10));
+		lights = new Vector<Light>();
+	
+		camera = new Camera();
 	}
 
 	public void addObject(SceneObject object) {
@@ -221,9 +237,21 @@ class Scene {
 	public Vector<SceneObject> getObjects() {
 		return objects;
 	}
+	
+	public void addLight(Light light) {
+		lights.add(light);
+	}
+
+	public Vector<Light> getLights() {
+		return lights;
+	}
 
 	public Camera getCamera() {
 		return camera;
+	}
+	
+	public void setCamera(Camera camera) {
+		this.camera = camera;
 	}
 
 	public String toString() {
@@ -261,12 +289,13 @@ class Sphere extends SceneObject {
 	
 	public Sphere(Vector3d position) {
 		super(position);
+	
+		this.type = "Sphere";
 	}
 	
 	public Sphere(Vector3d position, double radius) {
 		this(position);
 		
-		this.type = "Sphere";
 		this.radius = radius;
 	}
 
@@ -305,6 +334,17 @@ class Camera extends SceneObject {
 		this(position, 1, 1);
 	}
 	
+	public Camera() {
+		this(new Vector3d(0, 0, 0));
+	}
+
+	public void setFOV(double fovX, double fovY) {
+		fovH = fovX;
+		fovV = fovY;
+
+		calculateFOVRatio();
+	}
+
 	public void setScreenSize(int width, int height) {
 		screenWidth = width;
 		screenHeight = height;
@@ -325,6 +365,19 @@ class Camera extends SceneObject {
 
 	public String toString() {
 		return "Camera (position: "+position.toString()+", FoV: "+fovH+"/"+fovV+")";
+	}
+}
+
+class Light extends SceneObject {
+	public Color color;
+	public double intensity = 1;
+	// TODO direction for sun lights;
+	// TODO falloff for spotlights
+
+	public Light(Vector3d position) {
+		super(position);
+		this.type = "Point Light";
+		color = Color.WHITE; // default
 	}
 }
 
