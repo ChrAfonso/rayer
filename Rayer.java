@@ -1,10 +1,15 @@
 import java.awt.image.BufferedImage;
 import java.awt.Graphics;
 import java.awt.Color;
+import java.awt.event.*;
+
 import javax.swing.*;
 import java.io.*;
 import java.util.Vector;
 import java.math.*;
+
+import javax.imageio.ImageIO;
+import java.io.File;
 
 public class Rayer {
 	private JFrame frame;
@@ -21,10 +26,31 @@ public class Rayer {
 		panel = new RayerPanel();
 		panel.setSize(800, 600);
 		frame.setContentPane(panel);
+		
+		frame.addKeyListener(new KeyAdapter() {
+			public void keyPressed(KeyEvent e) {
+				switch(e.getKeyCode()) {
+					case KeyEvent.VK_F3:
+						saveImage();
+						break;
+				}
+			};
+		});
 
 		frame.show();
 	}
 	
+	private void saveImage() {
+		if (image != null) {
+			File saveFile = new File("render.png");
+			try {
+				ImageIO.write(image, "png", saveFile);
+			} catch(IOException e) {
+				System.out.println(e);
+			}
+		}
+	}
+
 	private boolean readScene(String sceneFile) {
 		// TODO
 		
