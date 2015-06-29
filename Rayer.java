@@ -6,7 +6,10 @@ import java.awt.event.*;
 import javax.swing.*;
 import java.io.*;
 import java.util.Vector;
+import java.util.Collections;
 import java.math.*;
+
+import java.lang.Comparable;
 
 import javax.imageio.ImageIO;
 import java.io.File;
@@ -52,7 +55,11 @@ public class Rayer {
 	}
 
 	private boolean readScene(String sceneFile) {
-		// TODO
+		if(sceneFile == null) {
+			return false;
+		} else {
+			// TODO read scene from file
+		}
 		
 		return false;
 	}
@@ -60,8 +67,20 @@ public class Rayer {
 	private void initDummyScene() {
 		scene = new Scene();
 
-		Sphere sphere = new Sphere(new Vector3d(0, 0, 0), 3);
+		Sphere sphere = new Sphere(new Vector3d(1, 0, 0), 2);
 		scene.addObject(sphere);
+
+		Sphere sphere2 = new Sphere(new Vector3d(-0.5, 1, 1), 1);
+		sphere2.material.diffuse = Color.GREEN;
+		scene.addObject(sphere2);
+		
+		Sphere sphere3 = new Sphere(new Vector3d(-2, 1, -1), 1);
+		sphere3.material.diffuse = Color.BLUE;
+		scene.addObject(sphere3);
+		
+		Sphere sphere4 = new Sphere(new Vector3d(-2.7, 0.5, -1), 0.9);
+		sphere4.material.diffuse = Color.YELLOW;
+		scene.addObject(sphere4);
 	}
 
 	public void logSceneContents() {
@@ -83,15 +102,20 @@ public class Rayer {
 //		System.out.println("Ray sphere dist: "+dist);
 		if(dist < sphere.radius) { 
 //			System.out.println("Ray sphere hit with dist: "+dist);
+
 			// TODO position and normal
-			return new RayHit(ray, sphere, new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+			Vector3d minDistPoint = ray.position.add(ray.direction.normalize().scale(ray.direction.normalize().dot(sphere.position.sub(ray.position))));
+			Vector3d hitPoint = minDistPoint.sub(ray.direction.normalize().scale(Math.sin(Math.acos(dist/sphere.radius))*sphere.radius));
+			Vector3d normal = hitPoint.sub(sphere.position).normalize();
+
+			return new RayHit(ray, sphere, hitPoint, normal);
 		} else {
 			return null;
 		}
 	}
 
 	private Vector<RayHit> getRayHits(Scene scene, int screenX, int screenY) {
-		Vector<RayHit> result = new Vector<RayHit>();
+		Vector<RayHit> hits = new Vector<RayHit>();
 		
 		Ray camRay = scene.getCamera().getCamRayForScreenPosition(screenX, screenY);
 //		System.out.println("Cam ray for ["+screenX+", "+screenY+"]:");
@@ -101,11 +125,13 @@ public class Rayer {
 		for(SceneObject object: scene.getObjects()) {
 			RayHit hit = getRayHit(camRay, object);
 			if(hit != null) {
-				result.add(hit);
+				hits.add(hit);
 			}
 		}
+		
+		Collections.sort(hits);
 
-		return result;
+		return hits;
 	}
 
 	private void renderPixel(int i, int j) {
@@ -113,8 +139,20 @@ public class Rayer {
 
 		Vector<RayHit> hits = getRayHits(scene, i, j);
 		if(hits.size() > 0) {
-			// TODO
-			color = Color.WHITE;
+			// TODO order front to back, use first
+			RayHit hit = hits.get(0);
+			
+			Color diffuse = hit.object.material.diffuse;
+
+			// TODO normal is irrelevant for lambert, should use light direction
+			//      for now light is directly at camera
+			float factor = (float) Math.min(Math.max(hit.ray.direction.scale(-1).dot(hit.normal), 0.0), 1.0);
+			color = new Color(
+				(int) (diffuse.getRed()*factor),
+				(int) (diffuse.getGreen()*factor),
+				(int) (diffuse.getBlue()*factor)
+			);
+//			System.out.println("factor: "+factor+", color red: "+color.getRed());
 		} else {
 			// TODO background?
 			color = Color.BLACK;
@@ -141,6 +179,10 @@ public class Rayer {
 		panel.invalidate();
 		panel.repaint();
 	}
+	
+	public Rayer() {
+		this(null);
+	}
 
 	public Rayer(String sceneFile) {
 		initFrame();
@@ -151,9 +193,14 @@ public class Rayer {
 
 		renderScene();
 	}
-
+	
 	public static void main(String[] args) {
-		Rayer rayer = new Rayer(args[0]);
+		Rayer rayer;
+		if(args.length > 0) {
+			rayer = new Rayer(args[0]); // open scene
+		} else {
+			rayer = new Rayer();
+		}
 	}
 }
 
@@ -194,11 +241,14 @@ class Scene {
 class SceneObject {
 	public String type;
 	public Vector3d position;
+	
+	public Material material;
 
 	public SceneObject(Vector3d position) {
 		this.position = position;
 		
 		type = "SceneObject";
+		material = new Material();
 	}
 
 	public String toString() {
@@ -222,6 +272,15 @@ class Sphere extends SceneObject {
 
 	public String toString() {
 		return "Sphere (center: "+position.toString()+", radius: "+radius+")";
+	}
+}
+
+class Material {
+	public Color diffuse;
+
+	public Material() {
+		//default
+		diffuse = Color.RED;
 	}
 }
 
@@ -260,7 +319,7 @@ class Camera extends SceneObject {
 
 	public Ray getCamRayForScreenPosition(int i, int j) {
 		double x = Math.tan(Math.toRadians((i - screenWidth/2)*fovRatioX));
-		double y = Math.tan(Math.toRadians((j - screenHeight/2)*fovRatioY));
+		double y = Math.tan(Math.toRadians(((screenHeight - j) - screenHeight/2)*fovRatioY));
 		return new Ray(position, new Vector3d(x, y, 1));
 	}
 
@@ -347,7 +406,7 @@ class Ray {
 	}
 }
 
-class RayHit {
+class RayHit implements Comparable<RayHit> {
 	public Ray ray;
 	public SceneObject object;
 	public Vector3d position;
@@ -358,6 +417,10 @@ class RayHit {
 		this.object = object;
 		this.position = position;
 		this.normal = normal;
+	}
+
+	public int compareTo(RayHit other) {
+		return Double.compare(this.position.sub(ray.position).getLength(), other.position.sub(other.ray.position).getLength());
 	}
 }
 
