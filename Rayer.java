@@ -84,11 +84,11 @@ public class Rayer {
 		sphere2.material.diffuse = Color.GREEN;
 		scene.addObject(sphere2);
 		
-		Sphere sphere3 = new Sphere(new Vector3d(-2, 1, -1), 1);
+		Sphere sphere3 = new Sphere(new Vector3d(-2, 1, -3), 1);
 		sphere3.material.diffuse = Color.BLUE;
 		scene.addObject(sphere3);
 		
-		Sphere sphere4 = new Sphere(new Vector3d(-2.7, 0.5, -1), 0.9);
+		Sphere sphere4 = new Sphere(new Vector3d(-2.7, 0.5, -3), 0.9);
 		sphere4.material.diffuse = Color.YELLOW;
 		scene.addObject(sphere4);
 	}
@@ -158,10 +158,22 @@ public class Rayer {
 			double green = 0;
 			double blue = 0;
 			for(Light light: scene.getLights()) {
-				float factor = (float) light.position.sub(hit.position).normalize().dot(hit.normal);
-				red += (diffuse.getRed()*factor);
-				green += (diffuse.getGreen()*factor);
-				blue += (diffuse.getBlue()*factor);
+				boolean shadowed = false;
+				Ray lightRay = new Ray(light.position, hit.position.sub(light.position));
+				for(SceneObject object: scene.getObjects(hit.object)) {
+					RayHit lightHit = getRayHit(lightRay, object);
+					if(lightHit != null && lightHit.position.sub(light.position).getLength() < hit.position.sub(light.position).getLength()) {
+						shadowed = true;
+						break;
+					}
+				}
+				
+				if(!shadowed) {
+					float factor = (float) light.position.sub(hit.position).normalize().dot(hit.normal);
+					red += (diffuse.getRed()*factor);
+					green += (diffuse.getGreen()*factor);
+					blue += (diffuse.getBlue()*factor);
+				}
 			}
 		
 			color = new Color(
@@ -239,6 +251,12 @@ class Scene {
 
 	public Vector<SceneObject> getObjects() {
 		return objects;
+	}
+
+	public Vector<SceneObject> getObjects(SceneObject except) {
+		Vector<SceneObject> result = (Vector<SceneObject>) objects.clone();
+		result.remove(except);
+		return result;
 	}
 	
 	public void addLight(Light light) {
