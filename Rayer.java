@@ -20,6 +20,9 @@ public class Rayer {
 	private BufferedImage image;
 
 	private Scene scene; 
+	
+	//test
+	private static int t = 0;
 
 	private void initFrame() {
 		frame = new JFrame("Rayer");
@@ -34,10 +37,18 @@ public class Rayer {
 			public void keyPressed(KeyEvent e) {
 				switch(e.getKeyCode()) {
 					case KeyEvent.VK_F3:
-						saveImage();
+						saveImage("render.png");
 						break;
 					case KeyEvent.VK_ESCAPE:
 						System.exit(0);
+						break;
+
+					// TEST
+					case KeyEvent.VK_ENTER:
+						t++;
+						initDummyScene(t);
+						renderScene();
+						saveImage("testrender_"+t+".png");
 						break;
 				}
 			};
@@ -46,9 +57,9 @@ public class Rayer {
 		frame.show();
 	}
 	
-	private void saveImage() {
+	private void saveImage(String filename) {
 		if (image != null) {
-			File saveFile = new File("render.png");
+			File saveFile = new File(filename);
 			try {
 				ImageIO.write(image, "png", saveFile);
 			} catch(IOException e) {
@@ -57,20 +68,21 @@ public class Rayer {
 		}
 	}
 
-	private boolean readScene(String sceneFile) {
+	private boolean readScene(String sceneFile, int t) {
 		if(sceneFile == null) {
 			return false;
 		} else {
-			// TODO read scene from file
+			// TODO read scene from file, apply time
 		}
 		
 		return false;
 	}
 	
-	private void initDummyScene() {
+	private void initDummyScene(int t) {
 		scene = new Scene();
 		
-		Camera camera = new Camera(new Vector3d(0, 0, -10));
+		Camera camera = new Camera(new Vector3d(Math.sin((double)t/100)*10, 0, -Math.cos((double)t/100)*10));
+		camera.setDirection(new Vector3d(0, 0, 0).sub(camera.position).normalize());
 		camera.setFOV(80, 80);
 		scene.setCamera(camera);
 
@@ -210,14 +222,18 @@ public class Rayer {
 	}
 	
 	public Rayer() {
-		this(null);
+		this(null, 0);
 	}
 
 	public Rayer(String sceneFile) {
+		this(sceneFile, 0);
+	}
+
+	public Rayer(String sceneFile, int t) {
 		initFrame();
 		
-		if(!readScene(sceneFile)) {
-			initDummyScene();
+		if(!readScene(sceneFile, t)) {
+			initDummyScene(t);
 		}
 
 		renderScene();
@@ -225,7 +241,10 @@ public class Rayer {
 	
 	public static void main(String[] args) {
 		Rayer rayer;
-		if(args.length > 0) {
+		if(args.length > 1) {
+			int t = Integer.parseInt(args[1]);
+			rayer = new Rayer(args[0], t);
+		} else if(args.length == 1) {
 			rayer = new Rayer(args[0]); // open scene
 		} else {
 			rayer = new Rayer();
@@ -304,7 +323,7 @@ class SceneObject {
 	}
 
 	public String toString() {
-		return "SceneObject (position: "+position.toString()+")";
+		return "SceneObject { type: "+type+", position: "+position+", material: "+material+" } ";
 	}
 }
 
@@ -324,7 +343,7 @@ class Sphere extends SceneObject {
 	}
 
 	public String toString() {
-		return "Sphere (center: "+position.toString()+", radius: "+radius+")";
+		return "Sphere { center: "+position.toString()+", radius: "+radius+" }";
 	}
 }
 
@@ -335,23 +354,36 @@ class Material {
 		//default
 		diffuse = Color.RED;
 	}
+
+	public String toString() {
+		return "Material { diffuse: "+diffuse+" }";
+	}
 }
 
 class Camera extends SceneObject {
+	private Vector3d direction;
+	private Quaternion rotationToDirection;
+
 	private double fovH = 80;
 	private double fovV = 80;
 	
 	private int screenWidth, screenHeight;
 	private double fovRatioX, fovRatioY;
 
-	public Camera(Vector3d position, int screenWidth, int screenHeight) {
+	public Camera(Vector3d position, Vector3d direction, int screenWidth, int screenHeight) {
 		super(position);
+
+		setDirection(direction);
 		this.type = "Camera";
 
 		this.screenWidth = screenWidth;
 		this.screenHeight = screenHeight;
 
 		calculateFOVRatio();
+	}
+
+	public Camera(Vector3d position, int screenWidth, int screenHeight) {
+		this(position, new Vector3d(0, 0, 1), screenWidth, screenHeight);
 	}
 
 	public Camera(Vector3d position) {
@@ -367,6 +399,11 @@ class Camera extends SceneObject {
 		fovV = fovY;
 
 		calculateFOVRatio();
+	}
+	
+	public void setDirection(Vector3d direction) {
+		rotationToDirection = new Vector3d(0, 0, 1).rotationTo(direction.normalize());
+		this.direction = direction.rotate(rotationToDirection);
 	}
 
 	public void setScreenSize(int width, int height) {
@@ -384,11 +421,11 @@ class Camera extends SceneObject {
 	public Ray getCamRayForScreenPosition(int i, int j) {
 		double x = Math.tan(Math.toRadians((i - screenWidth/2)*fovRatioX));
 		double y = Math.tan(Math.toRadians(((screenHeight - j) - screenHeight/2)*fovRatioY));
-		return new Ray(position, new Vector3d(x, y, 1));
+		return new Ray(position, new Vector3d(x, y, 1).normalize().rotate(rotationToDirection)); 
 	}
 
 	public String toString() {
-		return "Camera (position: "+position.toString()+", FoV: "+fovH+"/"+fovV+")";
+		return "Camera { position: "+position+", direction: "+direction+", FoV: "+fovH+"/"+fovV+" }";
 	}
 }
 
@@ -405,7 +442,7 @@ class Light extends SceneObject {
 	}
 
 	public String toString() {
-		return "Light (position: "+position+")";
+		return "Light { position: "+position+", color: "+color+", intensity: "+intensity+" }";
 	}
 }
 
@@ -454,9 +491,112 @@ class Vector3d {
 			x*other.y - y*other.x
 		);
 	}
+	
+	public Quaternion rotationTo(Vector3d other) {
+		return new Quaternion(this.normalize().cross(other.normalize()), 1 + this.normalize().dot(other.normalize()));
+	}
+	
+	public Vector3d rotate(Quaternion q) {
+		return q.rotate(this);
+	}
 
 	public String toString() {
 		return "["+x+", "+y+", "+z+"]";
+	}
+}
+
+class Quaternion {
+	public double x, y, z, w;
+
+	public Quaternion(double x, double y, double z, double w) {
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		this.w = w;
+
+		normalize();
+	}
+	
+	public Quaternion(Vector3d xyz, double w) {
+		this(xyz.x, xyz.y, xyz.z, w);
+	}
+
+	private void normalize() {
+		double quot = Math.sqrt(x*x + y*y + z*z + w*w);
+		if(quot != 0) {
+			x /= quot;
+			y /= quot;
+			z /= quot;
+			w /= quot;
+		}
+	}
+	
+	public Quaternion inverse() {
+		double quot = x*x + y*y + z*z + w*w;
+		return new Quaternion(-x/quot, -y/quot, -z/quot, w/quot);
+	}
+
+	public Vector3d rotate(Vector3d v) {
+		return this.mult(new Quaternion(v, 0)).mult(this.inverse()).v();
+	}
+	
+	public Quaternion mult(Quaternion other) {
+		return new Quaternion(
+			other.v().scale(w).add(v().scale(other.w)).add(v().cross(other.v())),
+			w*other.w - v().dot(other.v())
+		);
+	}
+	
+	public Vector3d v() {
+		return new Vector3d(x, y, z);
+	}
+
+	public double angle() {
+		return 2*Math.asin(Math.sqrt(x*x + y*y + z*z));
+	}
+
+	public Vector3d axis() {
+		double quot = 1/Math.sin(0.5*angle());
+		return new Vector3d(x/quot, y/quot, z/quot);
+	}
+
+	public String toString() {
+		return "["+x+", "+y+", "+z+", "+w+"]";
+	}
+}
+
+class Matrix44d {
+	public double a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3;
+
+	public Matrix44d(double a0, double a1, double a2, double a3,
+		double b0, double b1, double b2, double b3,
+		double c0, double c1, double c2, double c3,
+		double d0, double d1, double d2, double d3
+	) {
+		this.a0 = a0;
+		this.a1 = a1;
+		this.a2 = a2;
+		this.a3 = a3;
+		this.b0 = b0;
+		this.b1 = b1;
+		this.b2 = b2;
+		this.b3 = b3;
+		this.c0 = c0;
+		this.c1 = c1;
+		this.c2 = c2;
+		this.c3 = c3;
+		this.d0 = d0;
+		this.d1 = d1;
+		this.d2 = d2;
+		this.d3 = d3;
+	}
+
+	public Vector3d mult(Vector3d v) {
+		return new Vector3d(
+			a0*v.x + a1*v.y + a2*v.z + a3,
+			b0*v.x + b1*v.y + b2*v.z + b3,
+			c0*v.x + c1*v.y + c2*v.z + c3
+		).scale(1/(d0*v.x + d1*v.y + d2*v.z + d3));
 	}
 }
 
@@ -483,7 +623,7 @@ class Ray {
 	}
 
 	public String toString() {
-		return "Ray (position "+position+", direction"+direction+")";
+		return "Ray { position "+position+", direction"+direction+" }";
 	}
 }
 
