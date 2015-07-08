@@ -161,19 +161,21 @@ public class Rayer {
 			return null;
 		}
 	}
-
+	
 	private RayHit getRayHit(Ray ray, Sphere sphere) {
 		double dist = ray.direction.normalize().cross(sphere.position.sub(ray.position)).getLength();
-//		System.out.println("Ray sphere dist: "+dist);
 		if(dist < sphere.radius) { 
-//			System.out.println("Ray sphere hit with dist: "+dist);
 
-			// TODO position and normal
 			Vector3d minDistPoint = ray.position.add(ray.direction.normalize().scale(ray.direction.normalize().dot(sphere.position.sub(ray.position))));
 			Vector3d hitPoint = minDistPoint.sub(ray.direction.normalize().scale(Math.sin(Math.acos(dist/sphere.radius))*sphere.radius));
 			Vector3d normal = hitPoint.sub(sphere.position).normalize();
+			
+			double distance = ray.position.sub(hitPoint).getLength();
 
-			return new RayHit(ray, sphere, hitPoint, normal);
+			// check direction, no back rays!
+			if(ray.direction.normalize().dot(hitPoint.sub(ray.position)) < 0) return null;
+
+			return new RayHit(ray, sphere, hitPoint, normal, distance);
 		} else {
 			return null;
 		}
@@ -197,11 +199,12 @@ public class Rayer {
 		return hits;
 	}
 
-	private Color getColorForRay(Ray ray) {
+	private int maxBounceLevel = 5;
+	private Color getColorForRay(Ray ray, int bounceLevel) {
 		Color color;
 		
 		Vector<RayHit> hits = getRayHits(scene, ray);
-		if(hits.size() > 0) {
+		if(hits.size() > 0 && hits.get(0).distance > 0.001) {
 			// TODO order front to back, use first
 			RayHit hit = hits.get(0);
 			
@@ -237,9 +240,22 @@ public class Rayer {
 			);
 
 			// TEST reflections
-			if(hit.object.material.reflectivity > 0) {
-				// TODO shoot reflected ray, get diffuse lighted color at reflection point (recursive?)
-				// TODO mix
+			if(hit.object.material.reflectivity > 0 && bounceLevel < maxBounceLevel) {
+				// shoot reflected ray, get diffuse lighted color at reflection point (recursive?)
+				Vector3d rayFromSurface  = ray.direction.scale(-1).normalize();
+				Quaternion angleToNormal = rayFromSurface.rotationTo(hit.normal);
+				Vector3d reflectDir = rayFromSurface.rotate(angleToNormal).rotate(angleToNormal);
+				Ray reflectRay = new Ray(hit.position, reflectDir);
+				
+				Color reflectColor = getColorForRay(reflectRay, bounceLevel+1);
+				
+				// mix
+				double r = Math.min(1, Math.max(0, hit.object.material.reflectivity));
+				color = new Color(
+					(int) (color.getRed()*(1-r) + reflectColor.getRed()*r),
+					(int) (color.getGreen()*(1-r) + reflectColor.getGreen()*r),
+					(int) (color.getBlue()*(1-r) + reflectColor.getBlue()*r)
+				);
 			}
 		} else {
 			// TODO background?
@@ -251,7 +267,7 @@ public class Rayer {
 
 	private void renderPixel(int i, int j) {
 		Ray camRay = scene.getCamera().getCamRayForScreenPosition(i, j);
-		Color color = getColorForRay(camRay);
+		Color color = getColorForRay(camRay, 0);
 
 		image.setRGB(i, j, color.getRGB());
 	}
@@ -712,16 +728,18 @@ class RayHit implements Comparable<RayHit> {
 	public SceneObject object;
 	public Vector3d position;
 	public Vector3d normal;
+	public double distance;
 
-	public RayHit(Ray ray, SceneObject object, Vector3d position, Vector3d normal) {
+	public RayHit(Ray ray, SceneObject object, Vector3d position, Vector3d normal, double distance) {
 		this.ray = ray;
 		this.object = object;
 		this.position = position;
 		this.normal = normal;
+		this.distance = distance;
 	}
 
 	public int compareTo(RayHit other) {
-		return Double.compare(this.position.sub(ray.position).getLength(), other.position.sub(other.ray.position).getLength());
+		return Double.compare(this.distance, other.distance);
 	}
 }
 
