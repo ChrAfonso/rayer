@@ -71,6 +71,7 @@ public class Rayer {
 						renderScene();
 						break;
 					
+
 					case KeyEvent.VK_2:
 						light = scene.getLightByName("light2");
 						if(light != null) light.enabled = !light.enabled;
@@ -80,6 +81,31 @@ public class Rayer {
 					case KeyEvent.VK_3:
 						light = scene.getLightByName("light3");
 						if(light != null) light.enabled = !light.enabled;
+						renderScene();
+						break;
+					
+
+					case KeyEvent.VK_R:
+						SceneObject sphere = scene.getObjectByName("sphere");
+						if(sphere != null) sphere.material.reflectivity += 0.1;
+						renderScene();
+						break;
+					
+					case KeyEvent.VK_F:
+						sphere = scene.getObjectByName("sphere");
+						if(sphere != null) sphere.material.reflectivity -= 0.1;
+						renderScene();
+						break;
+					
+					case KeyEvent.VK_T:
+						sphere = scene.getObjectByName("sphere3");
+						if(sphere != null) sphere.material.reflectivity += 0.1;
+						renderScene();
+						break;
+					
+					case KeyEvent.VK_G:
+						sphere = scene.getObjectByName("sphere3");
+						if(sphere != null) sphere.material.reflectivity -= 0.1;
 						renderScene();
 						break;
 				}
@@ -123,12 +149,16 @@ public class Rayer {
 		scene.addLight(light);
 
 		Light light2 = new Light("light2", new Vector3d(20, -20, -20));
-		light2.color = new Color(255, 0, 255);
+		light2.color = new Color(255, 0, 0);
 		scene.addLight(light2);
 
 		Light light3 = new Light("light3", new Vector3d(0, 50, -20));
-		light3.color = new Color(255, 0, 255);
+		light3.color = new Color(0, 255, 0);
 		scene.addLight(light3);
+
+		Light light4 = new Light("light3", new Vector3d(0, 100, 0));
+		light4.color = new Color(255, 255, 255);
+		scene.addLight(light4);
 
 		Sphere sphere = new Sphere("sphere", new Vector3d(1, 0, 0), 2);
 //		sphere.material.diffuse = Color.RED;
