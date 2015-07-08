@@ -413,7 +413,7 @@ class Camera extends SceneObject {
 	
 	public void setDirection(Vector3d direction) {
 		rotationToDirection = new Vector3d(0, 0, 1).rotationTo(direction.normalize());
-		this.direction = direction.rotate(rotationToDirection);
+		this.direction = direction.rotate(rotationToDirection); // TODO check - should'nt this be just direction?
 	}
 
 	public void setScreenSize(int width, int height) {
