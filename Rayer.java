@@ -529,7 +529,7 @@ class Camera extends SceneObject {
 	
 	public void setDirection(Vector3d direction) {
 		rotationToDirection = new Vector3d(0, 0, 1).rotationTo(direction.normalize());
-		this.direction = direction.rotate(rotationToDirection); // TODO check - should'nt this be just direction?
+		this.direction = direction;
 	}
 
 	public void setScreenSize(int width, int height) {
@@ -619,7 +619,8 @@ class Vector3d {
 	}
 	
 	public Quaternion rotationTo(Vector3d other) {
-		return new Quaternion(this.normalize().cross(other.normalize()), 1 + this.normalize().dot(other.normalize()));
+		Quaternion doubleRot = new Quaternion(this.normalize().cross(other.normalize()), 1 + this.normalize().dot(other.normalize()));
+		return Quaternion.fromAxisAngle(doubleRot.axis(), doubleRot.angle()/2);
 	}
 	
 	public Vector3d rotate(Quaternion q) {
@@ -645,6 +646,10 @@ class Quaternion {
 	
 	public Quaternion(Vector3d xyz, double w) {
 		this(xyz.x, xyz.y, xyz.z, w);
+	}
+	
+	public static Quaternion fromAxisAngle(Vector3d axis, double angle) {
+		return new Quaternion(axis.normalize().scale(Math.sin(0.5*angle)), Math.cos(0.5*angle));
 	}
 
 	private void normalize() {
@@ -678,12 +683,11 @@ class Quaternion {
 	}
 
 	public double angle() {
-		return 2*Math.asin(Math.sqrt(x*x + y*y + z*z));
+		return 2*Math.acos(w);
 	}
 
 	public Vector3d axis() {
-		double quot = 1/Math.sin(0.5*angle());
-		return new Vector3d(x/quot, y/quot, z/quot);
+		return v().normalize(); 
 	}
 
 	public String toString() {
