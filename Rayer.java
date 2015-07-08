@@ -222,6 +222,8 @@ public class Rayer {
 				
 				if(!shadowed) {
 					float factor = (float) light.position.sub(hit.position).normalize().dot(hit.normal);
+					factor = Math.max(0, Math.min(1, factor));
+
 					red += (diffuse.getRed()*factor*((double)light.color.getRed()/255));
 					green += (diffuse.getGreen()*factor*((double)light.color.getGreen()/255));
 					blue += (diffuse.getBlue()*factor*((double)light.color.getBlue()/255));
