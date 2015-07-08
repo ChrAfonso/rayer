@@ -50,6 +50,38 @@ public class Rayer {
 						renderScene();
 						saveImage("testrender_"+t+".png");
 						break;
+
+					case KeyEvent.VK_PLUS:
+						t += 10;
+						initDummyScene(t);
+						renderScene();
+						saveImage("testrender_"+t+".png");
+						break;
+					
+					case KeyEvent.VK_MINUS:
+						t -= 10;
+						initDummyScene(t);
+						renderScene();
+						saveImage("testrender_"+t+".png");
+						break;
+					
+					case KeyEvent.VK_1:
+						Light light = scene.getLightByName("light1");
+						if(light != null) light.enabled = !light.enabled;
+						renderScene();
+						break;
+					
+					case KeyEvent.VK_2:
+						light = scene.getLightByName("light2");
+						if(light != null) light.enabled = !light.enabled;
+						renderScene();
+						break;
+					
+					case KeyEvent.VK_3:
+						light = scene.getLightByName("light3");
+						if(light != null) light.enabled = !light.enabled;
+						renderScene();
+						break;
 				}
 			};
 		});
@@ -81,36 +113,37 @@ public class Rayer {
 	private void initDummyScene(int t) {
 		scene = new Scene();
 		
-		Camera camera = new Camera(new Vector3d(Math.sin((double)t/100)*10, 0, -Math.cos((double)t/100)*10));
+		Camera camera = new Camera("camera", new Vector3d(Math.sin((double)t/100)*10, 0, -Math.cos((double)t/100)*10));
 		camera.setDirection(new Vector3d(0, 0, 0).sub(camera.position).normalize());
 		camera.setFOV(80, 80);
 		scene.setCamera(camera);
 
-		Light light = new Light(new Vector3d(-20, 20, -50));
+		Light light = new Light("light1", new Vector3d(-20, 20, -50));
 		light.color = new Color(255, 255, 0);
 		scene.addLight(light);
 
-		Light light2 = new Light(new Vector3d(20, -20, -20));
+		Light light2 = new Light("light2", new Vector3d(20, -20, -20));
 		light2.color = new Color(255, 0, 255);
 		scene.addLight(light2);
 
-		Light light3 = new Light(new Vector3d(0, 50, -20));
+		Light light3 = new Light("light3", new Vector3d(0, 50, -20));
 		light3.color = new Color(255, 0, 255);
 		scene.addLight(light3);
 
-		Sphere sphere = new Sphere(new Vector3d(1, 0, 0), 2);
+		Sphere sphere = new Sphere("sphere", new Vector3d(1, 0, 0), 2);
 //		sphere.material.diffuse = Color.RED;
+		sphere.material.reflectivity = 0.5;
 		scene.addObject(sphere);
 
-		Sphere sphere2 = new Sphere(new Vector3d(-0.5, 1, 1), 1);
+		Sphere sphere2 = new Sphere("sphere2", new Vector3d(-0.5, 1, 1), 1);
 //		sphere2.material.diffuse = Color.GREEN;
 		scene.addObject(sphere2);
 		
-		Sphere sphere3 = new Sphere(new Vector3d(-2, 1, -3), 1);
+		Sphere sphere3 = new Sphere("sphere3", new Vector3d(-2, 1, -3), 1);
 //		sphere3.material.diffuse = Color.BLUE;
 		scene.addObject(sphere3);
 		
-		Sphere sphere4 = new Sphere(new Vector3d(-2.7, 0.5, -3), 0.9);
+		Sphere sphere4 = new Sphere("sphere4", new Vector3d(-2.7, 0.5, -3), 0.9);
 //		sphere4.material.diffuse = Color.YELLOW;
 		scene.addObject(sphere4);
 	}
@@ -146,16 +179,14 @@ public class Rayer {
 		}
 	}
 
-	private Vector<RayHit> getRayHits(Scene scene, int screenX, int screenY) {
+	private Vector<RayHit> getRayHits(Scene scene, Ray ray) {
 		Vector<RayHit> hits = new Vector<RayHit>();
-		
-		Ray camRay = scene.getCamera().getCamRayForScreenPosition(screenX, screenY);
-//		System.out.println("Cam ray for ["+screenX+", "+screenY+"]:");
-//		System.out.println(camRay);
 		
 		// TODO
 		for(SceneObject object: scene.getObjects()) {
-			RayHit hit = getRayHit(camRay, object);
+			if(!object.enabled) continue;
+			
+			RayHit hit = getRayHit(ray, object);
 			if(hit != null) {
 				hits.add(hit);
 			}
@@ -166,10 +197,10 @@ public class Rayer {
 		return hits;
 	}
 
-	private void renderPixel(int i, int j) {
+	private Color getColorForRay(Ray ray) {
 		Color color;
-
-		Vector<RayHit> hits = getRayHits(scene, i, j);
+		
+		Vector<RayHit> hits = getRayHits(scene, ray);
 		if(hits.size() > 0) {
 			// TODO order front to back, use first
 			RayHit hit = hits.get(0);
@@ -180,14 +211,13 @@ public class Rayer {
 			double green = 0;
 			double blue = 0;
 			for(Light light: scene.getLights()) {
+				if(!light.enabled) continue;
+				
 				boolean shadowed = false;
-				Ray lightRay = new Ray(light.position, hit.position.sub(light.position));
-				for(SceneObject object: scene.getObjects(hit.object)) {
-					RayHit lightHit = getRayHit(lightRay, object);
-					if(lightHit != null && lightHit.position.sub(light.position).getLength() < hit.position.sub(light.position).getLength()) {
-						shadowed = true;
-						break;
-					}
+				Ray lightRay = new Ray(light.position, hit.position.sub(light.position).normalize());
+				Vector<RayHit> lightHits = getRayHits(scene, lightRay);
+				if(lightHits.size() > 0 && lightHits.get(0).object != hit.object) {
+					shadowed = true;
 				}
 				
 				if(!shadowed) {
@@ -203,11 +233,23 @@ public class Rayer {
 				(int) (Math.max(Math.min(green, 255), 0)),
 				(int) (Math.max(Math.min(blue, 255), 0))
 			);
-//			System.out.println("color: "+color);
+
+			// TEST reflections
+			if(hit.object.material.reflectivity > 0) {
+				// TODO shoot reflected ray, get diffuse lighted color at reflection point (recursive?)
+				// TODO mix
+			}
 		} else {
 			// TODO background?
 			color = Color.BLACK;
 		}
+		
+		return color;
+	}
+
+	private void renderPixel(int i, int j) {
+		Ray camRay = scene.getCamera().getCamRayForScreenPosition(i, j);
+		Color color = getColorForRay(camRay);
 
 		image.setRGB(i, j, color.getRGB());
 	}
@@ -303,6 +345,26 @@ class Scene {
 	public void setCamera(Camera camera) {
 		this.camera = camera;
 	}
+	
+	public SceneObject getObjectByName(String name) {
+		for(SceneObject object: objects) {
+			if(object.name == name) {
+				return object;
+			}
+		}
+
+		return null;
+	}
+
+	public Light getLightByName(String name) {
+		for(Light light: lights) {
+			if(light.name == name) {
+				return light;
+			}
+		}
+
+		return null;
+	}
 
 	public String toString() {
 		String result = "Scene {\n";
@@ -320,12 +382,16 @@ class Scene {
 }
 
 class SceneObject {
+	public boolean enabled = true;
+	
+	public String name;
 	public String type;
 	public Vector3d position;
 	
 	public Material material;
 
-	public SceneObject(Vector3d position) {
+	public SceneObject(String name, Vector3d position) {
+		this.name = name;
 		this.position = position;
 		
 		type = "SceneObject";
@@ -340,14 +406,14 @@ class SceneObject {
 class Sphere extends SceneObject {
 	public double radius = 1;
 	
-	public Sphere(Vector3d position) {
-		super(position);
+	public Sphere(String name, Vector3d position) {
+		super(name, position);
 	
 		this.type = "Sphere";
 	}
 	
-	public Sphere(Vector3d position, double radius) {
-		this(position);
+	public Sphere(String name, Vector3d position, double radius) {
+		this(name, position);
 		
 		this.radius = radius;
 	}
@@ -359,10 +425,12 @@ class Sphere extends SceneObject {
 
 class Material {
 	public Color diffuse;
+	public double reflectivity;
 
 	public Material() {
 		//default
 		diffuse = Color.LIGHT_GRAY;
+		reflectivity = 0;
 	}
 
 	public String toString() {
@@ -380,8 +448,8 @@ class Camera extends SceneObject {
 	private int screenWidth, screenHeight;
 	private double fovRatioX, fovRatioY;
 
-	public Camera(Vector3d position, Vector3d direction, int screenWidth, int screenHeight) {
-		super(position);
+	public Camera(String name, Vector3d position, Vector3d direction, int screenWidth, int screenHeight) {
+		super(name, position);
 
 		setDirection(direction);
 		this.type = "Camera";
@@ -392,16 +460,16 @@ class Camera extends SceneObject {
 		calculateFOVRatio();
 	}
 
-	public Camera(Vector3d position, int screenWidth, int screenHeight) {
-		this(position, new Vector3d(0, 0, 1), screenWidth, screenHeight);
+	public Camera(String name, Vector3d position, int screenWidth, int screenHeight) {
+		this(name, position, new Vector3d(0, 0, 1), screenWidth, screenHeight);
 	}
 
-	public Camera(Vector3d position) {
-		this(position, 1, 1);
+	public Camera(String name, Vector3d position) {
+		this(name, position, 1, 1);
 	}
 	
 	public Camera() {
-		this(new Vector3d(0, 0, 0));
+		this("default_camera", new Vector3d(0, 0, 0));
 	}
 
 	public void setFOV(double fovX, double fovY) {
@@ -445,8 +513,8 @@ class Light extends SceneObject {
 	// TODO direction for sun lights;
 	// TODO falloff for spotlights
 
-	public Light(Vector3d position) {
-		super(position);
+	public Light(String name, Vector3d position) {
+		super(name, position);
 		this.type = "Light";
 		color = Color.WHITE; // default
 	}
