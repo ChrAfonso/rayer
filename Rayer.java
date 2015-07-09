@@ -15,9 +15,12 @@ import javax.imageio.ImageIO;
 import java.io.File;
 
 public class Rayer {
+	private double MAX_DISTANCE = 5; // TODO HACK
+	
 	private JFrame frame;
 	private RayerPanel panel;
 	private BufferedImage image;
+	private BufferedImage zBuffer;
 
 	private Scene scene; 
 	
@@ -230,9 +233,10 @@ public class Rayer {
 	}
 
 	private int maxBounceLevel = 5;
-	private Color getColorForRay(Ray ray, int bounceLevel) {
+	private RayResult getColorForRay(Ray ray, int bounceLevel) {
 		Color color;
-		
+		double distance = 0;
+
 		Vector<RayHit> hits = getRayHits(scene, ray);
 		if(hits.size() > 0 && hits.get(0).distance > 0.001) {
 			// TODO order front to back, use first
@@ -277,7 +281,7 @@ public class Rayer {
 				Vector3d reflectDir = rayFromSurface.rotate(angleToNormal).rotate(angleToNormal);
 				Ray reflectRay = new Ray(hit.position, reflectDir);
 				
-				Color reflectColor = getColorForRay(reflectRay, bounceLevel+1);
+				Color reflectColor = getColorForRay(reflectRay, bounceLevel+1).color;
 				
 				// mix
 				double r = Math.min(1, Math.max(0, hit.object.material.reflectivity));
@@ -287,19 +291,24 @@ public class Rayer {
 					(int) (color.getBlue()*(1-r) + reflectColor.getBlue()*r)
 				);
 			}
+
+			distance = hit.distance;
 		} else {
 			// TODO background?
 			color = Color.BLACK;
 		}
 		
-		return color;
+		return new RayResult(color, distance);
 	}
 
 	private void renderPixel(int i, int j) {
 		Ray camRay = scene.getCamera().getCamRayForScreenPosition(i, j);
-		Color color = getColorForRay(camRay, 0);
+		RayResult pixel = getColorForRay(camRay, 0);
 
-		image.setRGB(i, j, color.getRGB());
+		image.setRGB(i, j, pixel.color.getRGB());
+		
+		float zValue = (float)(1 - (Math.min(1, Math.max(0, pixel.distance/MAX_DISTANCE))));
+		zBuffer.setRGB(i, j, new Color(zValue, zValue, zValue).getRGB());
 	}
 	
 	public void renderScene() {
@@ -307,14 +316,20 @@ public class Rayer {
 		
 		panel.clear();
 		image = new BufferedImage(800, 600, BufferedImage.TYPE_INT_ARGB);
-		
-		scene.getCamera().setScreenSize(image.getWidth(), image.getHeight());
+		zBuffer = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
 
+		scene.getCamera().setScreenSize(image.getWidth(), image.getHeight());
+		
+		MAX_DISTANCE = 2*scene.getCamera().position.sub(new Vector3d(0, 0, 0)).getLength();
 		for(int j = 0; j < image.getHeight(); j++) {
 			for(int i = 0; i < image.getWidth(); i++) {
 				renderPixel(i, j);
 			}
 		}
+
+		//TEST
+		image = ImagePost.blurGauss(image, 5, zBuffer);
+		
 		panel.setImage(image);
 
 		panel.invalidate();
@@ -795,4 +810,90 @@ class RayerPanel extends JPanel {
 	public void setImage(BufferedImage image) {
 		this.image = image;
 	}
+}
+
+class RayResult {
+	public Color color;
+	public double distance;
+
+	public RayResult(Color color, double distance) {
+		this.color = color;
+		this.distance = distance;
+	}
+}
+
+class ImagePost {
+	public static BufferedImage blurGauss(BufferedImage input, int radius, BufferedImage zBuffer) {
+		BufferedImage output = new BufferedImage(input.getWidth(), input.getHeight(), BufferedImage.TYPE_INT_ARGB);
+		GaussKernel kernel = new GaussKernel(radius);
+		for(int j = radius; j < output.getHeight() - radius; j++) {
+			for(int i = radius; i < output.getWidth() - radius; i++) {
+				double r = 0;
+				double g = 0;
+				double b = 0;
+				double factor;
+				for(int y = -radius; y <= radius; y++) {
+					for(int x = -radius; x <= radius; x++) {
+						double rad;
+						if(zBuffer != null) {
+							rad = Math.abs(new Color(zBuffer.getRGB(i, j)).getRed()/255 - 0.5) * radius; 
+						} else {
+							rad = radius;
+						}
+						factor = kernel.getValue(x, y, (int)rad);
+						double quot = Math.pow(radius*2 + 1, 2);
+
+						Color pixel = new Color(input.getRGB(i+x, j+y));
+						r += factor*pixel.getRed()/quot;
+						g += factor*pixel.getGreen()/quot;
+						b += factor*pixel.getBlue()/quot;
+					}
+				}
+				
+				output.setRGB(i, j, new Color((int)(Math.min(r, 255)), (int)(Math.min(g, 255)), (int)(Math.min(b, 255))).getRGB());
+			}
+		}
+		System.out.println("Finished blur!");
+		return output;
+	}
+}
+
+class ConvoKernel {
+	protected int radius = 3;
+
+	public ConvoKernel() {}
+	public ConvoKernel(int radius) {
+		this.radius = radius;
+	}
+
+	public int getRadius() { return radius; }
+	public void setRadius(int radius) { 
+		this.radius = radius;
+	}
+
+	public double getValue(int offX, int offY) {
+		return (Math.abs(offX) <= radius && Math.abs(offY) <= radius ? 1 : 0);
+	}
+}
+
+class GaussKernel extends ConvoKernel {
+	
+	public GaussKernel() {
+		super();
+	}
+
+	public GaussKernel(int radius) {
+		super(radius);
+	}
+
+	@Override
+	public double getValue(int offX, int offY) {
+		return Math.exp(-((offX*offX + offY*offY)/(2*radius*radius)));
+	}
+
+	public double getValue(int offX, int offY, int radius) {
+		if(radius < 1) radius = 1;
+		return Math.exp(-((offX*offX + offY*offY)/(2*radius*radius)));
+	}
+
 }
