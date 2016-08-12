@@ -179,6 +179,10 @@ public class Rayer {
 		Sphere sphere4 = new Sphere("sphere4", new Vector3d(-2.7, 0.5, -3), 0.9);
 //		sphere4.material.diffuse = Color.YELLOW;
 		scene.addObject(sphere4);
+
+		Plane plane1 = new Plane("plane1", new Vector3d(0, 0, 10), new Vector3d(0, 2, -1));
+		plane1.material.diffuse = Color.WHITE;
+		scene.addObject(plane1);
 	}
 
 	public void logSceneContents() {
@@ -186,33 +190,6 @@ public class Rayer {
 		System.out.println(scene.toString());
 	}
 	
-	// abstract?
-	private RayHit getRayHit(Ray ray, SceneObject object) {
-		if(object instanceof Sphere) {
-			return getRayHit(ray, (Sphere)object);
-		} else {
-			return null;
-		}
-	}
-	
-	private RayHit getRayHit(Ray ray, Sphere sphere) {
-		double dist = ray.direction.normalize().cross(sphere.position.sub(ray.position)).getLength();
-		if(dist < sphere.radius) { 
-
-			Vector3d minDistPoint = ray.position.add(ray.direction.normalize().scale(ray.direction.normalize().dot(sphere.position.sub(ray.position))));
-			Vector3d hitPoint = minDistPoint.sub(ray.direction.normalize().scale(Math.sin(Math.acos(dist/sphere.radius))*sphere.radius));
-			Vector3d normal = hitPoint.sub(sphere.position).normalize();
-			
-			double distance = ray.position.sub(hitPoint).getLength();
-
-			// check direction, no back rays!
-			if(ray.direction.normalize().dot(hitPoint.sub(ray.position)) < 0) return null;
-
-			return new RayHit(ray, sphere, hitPoint, normal, distance);
-		} else {
-			return null;
-		}
-	}
 
 	private Vector<RayHit> getRayHits(Scene scene, Ray ray) {
 		Vector<RayHit> hits = new Vector<RayHit>();
@@ -221,7 +198,7 @@ public class Rayer {
 		for(SceneObject object: scene.getObjects()) {
 			if(!object.enabled) continue;
 			
-			RayHit hit = getRayHit(ray, object);
+			RayHit hit = object.getRayHit(ray);
 			if(hit != null) {
 				hits.add(hit);
 			}
@@ -327,9 +304,25 @@ public class Rayer {
 			}
 		}
 
-		//TEST
-		image = ImagePost.blurGauss(image, 5, zBuffer);
+		image = ImagePost.blurGauss(image, 1, zBuffer);
 		
+		//TEST
+		boolean useDoF = false; // not working correctly
+		if(useDoF) {
+			image = ImagePost.blurGauss(image, 5, zBuffer);
+			System.out.println("MAX_DISTANCE: "+MAX_DISTANCE);
+			int zMin = 255;
+			int zMax = 0;
+			for(int j = 0; j < zBuffer.getHeight(); j++) {
+				for(int i = 0; i < zBuffer.getWidth(); i++) {
+					zMin = Math.min(zMin, new Color(zBuffer.getRGB(i, j)).getRed());
+					zMax = Math.max(zMax, new Color(zBuffer.getRGB(i, j)).getRed());
+				}
+			}
+			System.out.println("zMin: "+zMin);
+			System.out.println("zMax: "+zMax);
+		}
+
 		panel.setImage(image);
 
 		panel.invalidate();
@@ -460,6 +453,11 @@ class SceneObject {
 		type = "SceneObject";
 		material = new Material();
 	}
+	
+	// override
+	public RayHit getRayHit(Ray ray) {
+		return null;
+	}
 
 	public String toString() {
 		return "SceneObject { type: "+type+", position: "+position+", material: "+material+" } ";
@@ -480,9 +478,62 @@ class Sphere extends SceneObject {
 		
 		this.radius = radius;
 	}
+	
+	public RayHit getRayHit(Ray ray) {
+		double dist = ray.direction.normalize().cross(this.position.sub(ray.position)).getLength();
+		if(dist < this.radius) { 
+
+			Vector3d minDistPoint = ray.position.add(ray.direction.normalize().scale(ray.direction.normalize().dot(this.position.sub(ray.position))));
+			Vector3d hitPoint = minDistPoint.sub(ray.direction.normalize().scale(Math.sin(Math.acos(dist/this.radius))*this.radius));
+			Vector3d normal = hitPoint.sub(this.position).normalize();
+			
+			double distance = ray.position.sub(hitPoint).getLength();
+
+			// check direction, no back rays!
+			if(ray.direction.normalize().dot(hitPoint.sub(ray.position)) < 0) return null;
+
+			return new RayHit(ray, this, hitPoint, normal, distance);
+		} else {
+			return null;
+		}
+	}
 
 	public String toString() {
 		return "Sphere { center: "+position.toString()+", radius: "+radius+" }";
+	}
+}
+
+class Plane extends SceneObject {
+	public Vector3d normal;
+
+	public Plane(String name, Vector3d position) {
+		super(name, position);
+
+		this.type = "Plane";
+	}
+
+	public Plane(String name, Vector3d position, Vector3d normal) {
+		this(name, position);
+
+		this.normal = normal.normalize();
+	}
+	
+	public RayHit getRayHit(Ray ray) {
+		// check direction, no back rays!
+		double epsilon = 0.001; // HACK
+		if(ray.direction.normalize().dot(this.normal) >= epsilon) return null;
+		
+		// TODO: Precalc this each time position changes?
+		double planeOriginDist = -(this.position.dot(this.normal));
+
+		double distance = -(ray.position.dot(this.normal) + planeOriginDist) / ray.direction.normalize().dot(this.normal);
+		Vector3d hitPoint = ray.position.add(ray.direction.normalize().scale(distance));
+
+		return new RayHit(ray, this, hitPoint, this.normal, distance);
+	}
+
+	public String toString() {
+		return "Plane { origin: "+position.toString()+", normal: "+normal.toString()+" }";
 	}
 }
 
