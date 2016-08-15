@@ -183,6 +183,14 @@ public class Rayer {
 		Plane plane1 = new Plane("plane1", new Vector3d(0, 0, 10), new Vector3d(0, 2, -1));
 		plane1.material.diffuse = Color.WHITE;
 		scene.addObject(plane1);
+
+		Vector3d[] vertices = new Vector3d[3];
+		vertices[0] = new Vector3d(-2, 1, 2);
+		vertices[2] = new Vector3d(2, 1, 2);
+		vertices[1] = new Vector3d(0, 4, 2);
+		Triangle tri1 = new Triangle("tri1", vertices);
+		tri1.material.diffuse = Color.BLUE;
+		scene.addObject(tri1);
 	}
 
 	public void logSceneContents() {
@@ -530,8 +538,10 @@ class Plane extends SceneObject {
 	}
 }
 
+/** vertices clockwise towards viewer */
 class Triangle extends Plane {
 	private Vector3d[] vertices;
+	private Vector3d edge1, edge2, edge3;
 
 	public Triangle(String name, Vector3d[] vertices) {
 		super(name, new Vector3d(), new Vector3d()); // temp position/normal, recalculated later
@@ -543,17 +553,38 @@ class Triangle extends Plane {
 		
 		this.vertices = vertices;
 
-		// compute normal
-		// reuse these later?
-		Vector3d edge1 = vertices[1].sub(vertices[0]);
-		Vector3d edge2 = vertices[2].sub(vertices[1]);
-
+		// compute edges and normal normal
+		edge1 = vertices[1].sub(vertices[0]);
+		edge2 = vertices[2].sub(vertices[1]);
+		edge3 = vertices[0].sub(vertices[2]);
 		this.normal = edge1.cross(edge2).normalize();
 	}
+	
+	public RayHit getRayHit(Ray ray) {
+		RayHit planeHit = super.getRayHit(ray);
+		if(planeHit != null) {
+			// check bounds - source: http://geomalgorithms.com/a06-_intersect-2.html
+			double uu = edge1.dot(edge1);
+			double uv = edge1.dot(edge2.scale(-1));
+			double vv = edge2.dot(edge2); // TODO no -1 necessary?
+			Vector3d w = planeHit.position.sub(vertices[0]);
+			double wu = w.dot(edge1);
+			double wv = w.dot(edge2.scale(-1));
+			double denom = uv*uv - uu*vv;
 
+			double s = (uv*wv - vv*wu) / denom;
+			double t = (uv*wu - uu*wv) / denom;
+			
+			if(s < 0 || s > 1) return null;
+			if(t < 0 || t > 1) return null;
+			if(s + t > 1) return null;
+
+			return planeHit;
+		} else return null;
+	}
+	
 	public String toString() {
-		// TODO
-		return "Triangle";
+		return "Triangle { vertices: "+vertices[0].toString()+", "+vertices[1].toString()+", "+vertices[2].toString()+" }";
 	}
 }
 
