@@ -504,27 +504,20 @@ class Sphere extends SceneObject {
 }
 
 class Plane extends SceneObject {
-	public Vector3d normal;
-
-	public Plane(String name, Vector3d position) {
+	protected Vector3d normal;
+	private double planeOriginDist;
+	
+	public Plane(String name, Vector3d position, Vector3d normal) {
 		super(name, position);
 
-		this.type = "Plane";
-	}
-
-	public Plane(String name, Vector3d position, Vector3d normal) {
-		this(name, position);
-
 		this.normal = normal.normalize();
+		double planeOriginDist = -(this.position.dot(this.normal));
 	}
 	
 	public RayHit getRayHit(Ray ray) {
 		// check direction, no back rays!
 		double epsilon = 0.001; // HACK
 		if(ray.direction.normalize().dot(this.normal) >= epsilon) return null;
-		
-		// TODO: Precalc this each time position changes?
-		double planeOriginDist = -(this.position.dot(this.normal));
 
 		double distance = -(ray.position.dot(this.normal) + planeOriginDist) / ray.direction.normalize().dot(this.normal);
 		Vector3d hitPoint = ray.position.add(ray.direction.normalize().scale(distance));
@@ -534,6 +527,33 @@ class Plane extends SceneObject {
 
 	public String toString() {
 		return "Plane { origin: "+position.toString()+", normal: "+normal.toString()+" }";
+	}
+}
+
+class Triangle extends Plane {
+	private Vector3d[] vertices;
+
+	public Triangle(String name, Vector3d[] vertices) {
+		super(name, new Vector3d(), new Vector3d()); // temp position/normal, recalculated later
+		
+		if(vertices.length != 3) {
+			System.out.println("ERROR: Triangle must be initialized with 3 vertices!");
+			return;
+		}
+		
+		this.vertices = vertices;
+
+		// compute normal
+		// reuse these later?
+		Vector3d edge1 = vertices[1].sub(vertices[0]);
+		Vector3d edge2 = vertices[2].sub(vertices[1]);
+
+		this.normal = edge1.cross(edge2).normalize();
+	}
+
+	public String toString() {
+		// TODO
+		return "Triangle";
 	}
 }
 
@@ -641,6 +661,10 @@ class Light extends SceneObject {
 class Vector3d {
 	public double x, y, z;
 	
+	public Vector3d() {
+		this(0, 0, 0);
+	}
+
 	public Vector3d(double x, double y, double z) {
 		this.x = x;
 		this.y = y;
