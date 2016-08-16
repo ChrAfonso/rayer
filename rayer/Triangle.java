@@ -44,12 +44,14 @@ public class Triangle extends Plane {
 		RayHit planeHit = super.getRayHit(ray);
 		if(planeHit != null) {
 			// check bounds - source: http://geomalgorithms.com/a06-_intersect-2.html
-			double uu = edge1.dot(edge1);
-			double uv = edge1.dot(edge3.scale(-1));
-			double vv = edge3.dot(edge3); // TODO no -1 necessary?
+			Vector3d u = edge1;
+			Vector3d v = edge3.scale(-1);
+			double uu = u.dot(u);
+			double uv = u.dot(v);
+			double vv = v.dot(v); 
 			Vector3d w = planeHit.position.sub(vertices[0]);
-			double wu = w.dot(edge1);
-			double wv = w.dot(edge3.scale(-1));
+			double wu = w.dot(u);
+			double wv = w.dot(v);
 			double denom = uv*uv - uu*vv;
 
 			double s = (uv*wv - vv*wu) / denom;
