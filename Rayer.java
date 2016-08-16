@@ -14,6 +14,9 @@ import java.lang.Comparable;
 import javax.imageio.ImageIO;
 import java.io.File;
 
+import rayer.*;
+import rayermath.*;
+
 public class Rayer {
 	private double MAX_DISTANCE = 5; // TODO HACK
 	
@@ -26,6 +29,7 @@ public class Rayer {
 	
 	//test
 	private static int t = 0;
+	private boolean linebyline = true;
 
 	private void initFrame() {
 		frame = new JFrame("Rayer");
@@ -139,13 +143,21 @@ public class Rayer {
 		return false;
 	}
 	
+	private Mesh readMeshFromDAE(String daeFile) {
+		DAEReader reader = new DAEReader(daeFile);
+		Triangle[] triangles = reader.getTriangles();
+		Mesh mesh = new Mesh(daeFile, new Vector3d(), triangles);
+		return mesh;
+	}
+
 	private void initDummyScene(int t) {
 		scene = new Scene();
 		
-		Camera camera = new Camera("camera", new Vector3d(Math.sin((double)t/100)*10, 0, -Math.cos((double)t/100)*10));
+		Camera camera = new Camera("camera", new Vector3d(Math.sin((double)t/100)*2, 0, -Math.cos((double)t/100)*5));
 		camera.setDirection(new Vector3d(0, 0, 0).sub(camera.position).normalize());
 		camera.setFOV(80, 80);
 		scene.setCamera(camera);
+
 
 		Light light = new Light("light1", new Vector3d(-20, 20, -50));
 		light.color = new Color(255, 255, 0);
@@ -159,38 +171,59 @@ public class Rayer {
 		light3.color = new Color(0, 255, 0);
 		scene.addLight(light3);
 
-		Light light4 = new Light("light3", new Vector3d(0, 100, 0));
+		Light light4 = new Light("light3", new Vector3d(0, 100, -20));
 		light4.color = new Color(255, 255, 255);
 		scene.addLight(light4);
 
-		Sphere sphere = new Sphere("sphere", new Vector3d(1, 0, 0), 2);
+/*
+		Sphere sphere = new Sphere("sphere", new Vector3d(3, 0, 0), 2);
 //		sphere.material.diffuse = Color.RED;
 		sphere.material.reflectivity = 0.5;
 		scene.addObject(sphere);
 
 		Sphere sphere2 = new Sphere("sphere2", new Vector3d(-0.5, 1, 1), 1);
-//		sphere2.material.diffuse = Color.GREEN;
+		sphere2.material.diffuse = Color.GREEN;
 		scene.addObject(sphere2);
 		
 		Sphere sphere3 = new Sphere("sphere3", new Vector3d(-2, 1, -3), 1);
-//		sphere3.material.diffuse = Color.BLUE;
+		sphere3.material.diffuse = Color.BLUE;
 		scene.addObject(sphere3);
 		
 		Sphere sphere4 = new Sphere("sphere4", new Vector3d(-2.7, 0.5, -3), 0.9);
-//		sphere4.material.diffuse = Color.YELLOW;
+		sphere4.material.diffuse = Color.YELLOW;
 		scene.addObject(sphere4);
 
 		Plane plane1 = new Plane("plane1", new Vector3d(0, 0, 10), new Vector3d(0, 2, -1));
 		plane1.material.diffuse = Color.WHITE;
 		scene.addObject(plane1);
-
+*/
 		Vector3d[] vertices = new Vector3d[3];
-		vertices[0] = new Vector3d(-2, 1, 2);
-		vertices[2] = new Vector3d(2, 1, 2);
-		vertices[1] = new Vector3d(0, 4, 2);
+		vertices[0] = new Vector3d(-1, 2, -1);
+		vertices[2] = new Vector3d(1, 2, -1);
+		vertices[1] = new Vector3d(0, 3, 1);
+		Triangle tri = new Triangle("tri", vertices);
+		tri.material.diffuse = Color.RED;
+		scene.addObject(tri);
+		
+		vertices = new Vector3d[3];
+		vertices[0] = new Vector3d(-2, 0, 0);
+		vertices[2] = new Vector3d(2, 0, 0);
+		vertices[1] = new Vector3d(-2, 0, 4);
 		Triangle tri1 = new Triangle("tri1", vertices);
-		tri1.material.diffuse = Color.BLUE;
+		tri1.material.diffuse = Color.WHITE;
 		scene.addObject(tri1);
+		
+		vertices = new Vector3d[3];
+		vertices[0] = new Vector3d(-2, 1, 4);
+		vertices[2] = new Vector3d(2, 0.5, 0);
+		vertices[1] = new Vector3d(2, 1, 4);
+		Triangle tri2 = new Triangle("tri2", vertices);
+		tri2.material.diffuse = Color.GREEN;
+		scene.addObject(tri2);
+		
+		Mesh monkey = readMeshFromDAE("models/monkey.dae");
+		monkey.material.diffuse = new Color(128, 88, 0);
+		//scene.addObject(monkey);
 	}
 
 	public void logSceneContents() {
@@ -202,13 +235,23 @@ public class Rayer {
 	private Vector<RayHit> getRayHits(Scene scene, Ray ray) {
 		Vector<RayHit> hits = new Vector<RayHit>();
 		
-		// TODO
 		for(SceneObject object: scene.getObjects()) {
 			if(!object.enabled) continue;
 			
-			RayHit hit = object.getRayHit(ray);
-			if(hit != null) {
-				hits.add(hit);
+			if(object.type == "Mesh") {
+				// TEMP HACK distribute to triangles
+				Triangle[] triangles = ((Mesh)object).getTriangles();
+				for(int i = 0; i < triangles.length; i++) {
+					RayHit hit = triangles[i].getRayHit(ray);
+					if(hit != null) {
+						hits.add(hit);
+					}
+				}
+			} else {
+				RayHit hit = object.getRayHit(ray);
+				if(hit != null) {
+					hits.add(hit);
+				}
 			}
 		}
 		
@@ -309,6 +352,13 @@ public class Rayer {
 		for(int j = 0; j < image.getHeight(); j++) {
 			for(int i = 0; i < image.getWidth(); i++) {
 				renderPixel(i, j);
+			}
+
+			if(linebyline) {
+				panel.setImage(image);
+
+				panel.invalidate();
+				panel.repaint();
 			}
 		}
 
@@ -445,33 +495,6 @@ class Scene {
 	}
 }
 
-class SceneObject {
-	public boolean enabled = true;
-	
-	public String name;
-	public String type;
-	public Vector3d position;
-	
-	public Material material;
-
-	public SceneObject(String name, Vector3d position) {
-		this.name = name;
-		this.position = position;
-		
-		type = "SceneObject";
-		material = new Material();
-	}
-	
-	// override
-	public RayHit getRayHit(Ray ray) {
-		return null;
-	}
-
-	public String toString() {
-		return "SceneObject { type: "+type+", position: "+position+", material: "+material+" } ";
-	}
-}
-
 class Sphere extends SceneObject {
 	public double radius = 1;
 	
@@ -508,98 +531,6 @@ class Sphere extends SceneObject {
 
 	public String toString() {
 		return "Sphere { center: "+position.toString()+", radius: "+radius+" }";
-	}
-}
-
-class Plane extends SceneObject {
-	protected Vector3d normal;
-	private double planeOriginDist;
-	
-	public Plane(String name, Vector3d position, Vector3d normal) {
-		super(name, position);
-
-		this.normal = normal.normalize();
-		double planeOriginDist = -(this.position.dot(this.normal));
-	}
-	
-	public RayHit getRayHit(Ray ray) {
-		// check direction, no back rays!
-		double epsilon = 0.001; // HACK
-		if(ray.direction.normalize().dot(this.normal) >= epsilon) return null;
-
-		double distance = -(ray.position.dot(this.normal) + planeOriginDist) / ray.direction.normalize().dot(this.normal);
-		Vector3d hitPoint = ray.position.add(ray.direction.normalize().scale(distance));
-
-		return new RayHit(ray, this, hitPoint, this.normal, distance);
-	}
-
-	public String toString() {
-		return "Plane { origin: "+position.toString()+", normal: "+normal.toString()+" }";
-	}
-}
-
-/** vertices clockwise towards viewer */
-class Triangle extends Plane {
-	private Vector3d[] vertices;
-	private Vector3d edge1, edge2, edge3;
-
-	public Triangle(String name, Vector3d[] vertices) {
-		super(name, new Vector3d(), new Vector3d()); // temp position/normal, recalculated later
-		
-		if(vertices.length != 3) {
-			System.out.println("ERROR: Triangle must be initialized with 3 vertices!");
-			return;
-		}
-		
-		this.vertices = vertices;
-
-		// compute edges and normal normal
-		edge1 = vertices[1].sub(vertices[0]);
-		edge2 = vertices[2].sub(vertices[1]);
-		edge3 = vertices[0].sub(vertices[2]);
-		this.normal = edge1.cross(edge2).normalize();
-	}
-	
-	public RayHit getRayHit(Ray ray) {
-		RayHit planeHit = super.getRayHit(ray);
-		if(planeHit != null) {
-			// check bounds - source: http://geomalgorithms.com/a06-_intersect-2.html
-			double uu = edge1.dot(edge1);
-			double uv = edge1.dot(edge2.scale(-1));
-			double vv = edge2.dot(edge2); // TODO no -1 necessary?
-			Vector3d w = planeHit.position.sub(vertices[0]);
-			double wu = w.dot(edge1);
-			double wv = w.dot(edge2.scale(-1));
-			double denom = uv*uv - uu*vv;
-
-			double s = (uv*wv - vv*wu) / denom;
-			double t = (uv*wu - uu*wv) / denom;
-			
-			if(s < 0 || s > 1) return null;
-			if(t < 0 || t > 1) return null;
-			if(s + t > 1) return null;
-
-			return planeHit;
-		} else return null;
-	}
-	
-	public String toString() {
-		return "Triangle { vertices: "+vertices[0].toString()+", "+vertices[1].toString()+", "+vertices[2].toString()+" }";
-	}
-}
-
-class Material {
-	public Color diffuse;
-	public double reflectivity;
-
-	public Material() {
-		//default
-		diffuse = Color.LIGHT_GRAY;
-		reflectivity = 0;
-	}
-
-	public String toString() {
-		return "Material { diffuse: "+diffuse+" }";
 	}
 }
 
@@ -689,133 +620,7 @@ class Light extends SceneObject {
 	}
 }
 
-class Vector3d {
-	public double x, y, z;
-	
-	public Vector3d() {
-		this(0, 0, 0);
-	}
-
-	public Vector3d(double x, double y, double z) {
-		this.x = x;
-		this.y = y;
-		this.z = z;
-	}
-	
-	public Vector3d add(Vector3d other) {
-		return new Vector3d(x + other.x, y + other.y, z + other.z);
-	}
-
-	public Vector3d sub(Vector3d other) {
-		return new Vector3d(x - other.x, y - other.y, z - other.z);
-	}
-	
-	public Vector3d scale(double scalar) {
-		return new Vector3d(x*scalar, y*scalar, z*scalar);
-	}
-
-	public double getLength() {
-		return Math.sqrt(x*x + y*y + z*z);
-	}
-	
-	public Vector3d normalize() {
-		double length = getLength();
-		if(length > 0) {
-			return scale(1/length);
-		} else {
-			return scale(1);
-		}
-	}
-
-	public double dot(Vector3d other) {
-		return (x*other.x + y*other.y + z*other.z);
-	}
-
-	public Vector3d cross(Vector3d other) {
-		return new Vector3d(
-			y*other.z - z*other.y,
-			z*other.x - x*other.z,
-			x*other.y - y*other.x
-		);
-	}
-	
-	public Quaternion rotationTo(Vector3d other) {
-		Quaternion doubleRot = new Quaternion(this.normalize().cross(other.normalize()), 1 + this.normalize().dot(other.normalize()));
-		return Quaternion.fromAxisAngle(doubleRot.axis(), doubleRot.angle()/2);
-	}
-	
-	public Vector3d rotate(Quaternion q) {
-		return q.rotate(this);
-	}
-
-	public String toString() {
-		return "["+x+", "+y+", "+z+"]";
-	}
-}
-
-class Quaternion {
-	public double x, y, z, w;
-
-	public Quaternion(double x, double y, double z, double w) {
-		this.x = x;
-		this.y = y;
-		this.z = z;
-		this.w = w;
-
-		normalize();
-	}
-	
-	public Quaternion(Vector3d xyz, double w) {
-		this(xyz.x, xyz.y, xyz.z, w);
-	}
-	
-	public static Quaternion fromAxisAngle(Vector3d axis, double angle) {
-		return new Quaternion(axis.normalize().scale(Math.sin(0.5*angle)), Math.cos(0.5*angle));
-	}
-
-	private void normalize() {
-		double quot = Math.sqrt(x*x + y*y + z*z + w*w);
-		if(quot != 0) {
-			x /= quot;
-			y /= quot;
-			z /= quot;
-			w /= quot;
-		}
-	}
-	
-	public Quaternion inverse() {
-		double quot = x*x + y*y + z*z + w*w;
-		return new Quaternion(-x/quot, -y/quot, -z/quot, w/quot);
-	}
-
-	public Vector3d rotate(Vector3d v) {
-		return this.mult(new Quaternion(v, 0)).mult(this.inverse()).v();
-	}
-	
-	public Quaternion mult(Quaternion other) {
-		return new Quaternion(
-			other.v().scale(w).add(v().scale(other.w)).add(v().cross(other.v())),
-			w*other.w - v().dot(other.v())
-		);
-	}
-	
-	public Vector3d v() {
-		return new Vector3d(x, y, z);
-	}
-
-	public double angle() {
-		return 2*Math.acos(w);
-	}
-
-	public Vector3d axis() {
-		return v().normalize(); 
-	}
-
-	public String toString() {
-		return "["+x+", "+y+", "+z+", "+w+"]";
-	}
-}
-
+/*
 class Matrix44d {
 	public double a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3;
 
@@ -850,53 +655,7 @@ class Matrix44d {
 		).scale(1/(d0*v.x + d1*v.y + d2*v.z + d3));
 	}
 }
-
-class Vector2d {
-	public double x, y;
-
-	public Vector2d(double x, double y) {
-		this.x = x;
-		this.y = y;
-	}
-
-	public String toString() {
-		return "["+x+", "+y+"]";
-	}
-}
-
-class Ray {
-	public Vector3d position;
-	public Vector3d direction;
-
-	public Ray(Vector3d position, Vector3d direction) {
-		this.position = position;
-		this.direction = direction;
-	}
-
-	public String toString() {
-		return "Ray { position "+position+", direction"+direction+" }";
-	}
-}
-
-class RayHit implements Comparable<RayHit> {
-	public Ray ray;
-	public SceneObject object;
-	public Vector3d position;
-	public Vector3d normal;
-	public double distance;
-
-	public RayHit(Ray ray, SceneObject object, Vector3d position, Vector3d normal, double distance) {
-		this.ray = ray;
-		this.object = object;
-		this.position = position;
-		this.normal = normal;
-		this.distance = distance;
-	}
-
-	public int compareTo(RayHit other) {
-		return Double.compare(this.distance, other.distance);
-	}
-}
+*/
 
 class RayerPanel extends JPanel {
 	private BufferedImage image;
@@ -1002,4 +761,31 @@ class GaussKernel extends ConvoKernel {
 		return Math.exp(-((offX*offX + offY*offY)/(2*radius*radius)));
 	}
 
+}
+
+// TODO: repositioning should reposition all triangles
+class Mesh extends SceneObject {
+	int numTriangles = 0;
+	Triangle[] triangles;
+
+	public Mesh(String name, Vector3d position, Triangle[] triangles) {
+		super(name, position);
+
+		type = "Mesh";
+
+		if(triangles != null) {
+			this.triangles = triangles;
+			numTriangles = triangles.length;
+		} else System.out.println("WARNING: Creating empty Mesh!");
+	}
+	
+	// NOTE: getRayHit undelegated to Rayer, because of sorting
+	
+	public Triangle[] getTriangles() {
+		return triangles;
+	}
+
+	public String toString() {
+		return "Mesh { name: "+name+", triangles: "+numTriangles+"}";
+	}
 }
