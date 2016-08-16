@@ -2,7 +2,7 @@ package rayer;
 
 import rayermath.*;
 
-class Plane extends SceneObject {
+public class Plane extends SceneObject {
 	protected Vector3d normal;
 	private double planeOriginDist;
 	
