@@ -192,15 +192,18 @@ public class Rayer {
 		Sphere sphere4 = new Sphere("sphere4", new Vector3d(-2.7, 0.5, -3), 0.9);
 		sphere4.material.diffuse = Color.YELLOW;
 		scene.addObject(sphere4);
-
-		Plane plane1 = new Plane("plane1", new Vector3d(0, 0, 10), new Vector3d(0, 2, -1));
+*/
+		Plane plane1 = new Plane("plane1", new Vector3d(0, 0, 2), new Vector3d(0, 2, -1));
 		plane1.material.diffuse = Color.WHITE;
 		scene.addObject(plane1);
-*/
+		//TEST:
+		RayHit rh = plane1.getRayHit(new Ray(new Vector3d(0, 1, 0), new Vector3d(0, -1, 0)));
+		System.out.println(rh != null ? rh.position : "no hit.");
+
 		Vector3d[] vertices = new Vector3d[3];
-		vertices[0] = new Vector3d(-1, 2, -1);
-		vertices[2] = new Vector3d(1, 2, -1);
-		vertices[1] = new Vector3d(0, 3, 1);
+		vertices[0] = new Vector3d(-1, 1, 0);
+		vertices[2] = new Vector3d(1, 1, 0);
+		vertices[1] = new Vector3d(0, 2, t);
 		Triangle tri = new Triangle("tri", vertices);
 		tri.material.diffuse = Color.RED;
 		scene.addObject(tri);

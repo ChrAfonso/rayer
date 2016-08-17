@@ -24,7 +24,10 @@ public class Plane extends SceneObject {
 
 		double distance = -(ray.position.dot(this.normal) + planeOriginDist) / ray.direction.normalize().dot(this.normal);
 		Vector3d hitPoint = ray.position.add(ray.direction.normalize().scale(distance));
-
+		
+		// HACK TEST
+		if(Math.abs(hitPoint.x) > 1 || Math.abs(hitPoint.z) < 1) return null;
+		
 		return new RayHit(ray, this, hitPoint, this.normal, distance);
 	}
 
