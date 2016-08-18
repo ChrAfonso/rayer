@@ -92,8 +92,8 @@ public class Triangle extends Plane {
 				
 				// TODO: if normals, interpolate normal - this way looks patchy
 				if(normals != null) {
-					Vector3d interpNormal = normals[0].scale(1-s-t).add(normals[1].scale(s)).add(normals[2].scale(t));
-//					planeHit.normal = interpNormal;
+					Vector3d interpNormal = normals[0].scale(1-s-t).add(normals[1].scale(s)).add(normals[2].scale(t)).normalize();
+					planeHit.normal = interpNormal;
 				}
 				
 				return planeHit;

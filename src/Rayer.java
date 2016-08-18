@@ -241,7 +241,7 @@ public class Rayer {
 		tri2.material.diffuse = Color.GREEN;
 		scene.addObject(tri2);
 */
-		Mesh monkey = readMeshFromDAE("models/monkey.dae");
+		Mesh monkey = readMeshFromDAE("models/monkey_old.dae");
 		Quaternion xrot = Quaternion.fromAxisAngle(new Vector3d(1, 0, 0), Math.PI*(0.05*t));
 		monkey.rotate(xrot);
 		monkey.material.diffuse = new Color(128, 88, 0);
