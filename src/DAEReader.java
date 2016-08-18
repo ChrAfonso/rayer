@@ -69,8 +69,8 @@ public class DAEReader {
 			positions = new Vector3d[numPositions];
 			for(int i = 0; i < numPositions; i++) {
 				double x = Double.parseDouble(floats[i*3]);
-				double y = Double.parseDouble(floats[i*3 + 1]);
-				double z = Double.parseDouble(floats[i*3 + 2]);
+				double z = -Double.parseDouble(floats[i*3 + 1]);
+				double y = Double.parseDouble(floats[i*3 + 2]);
 				positions[i] = new Vector3d(x, y, z);
 			}
 			
@@ -86,8 +86,8 @@ public class DAEReader {
 			normals = new Vector3d[numNormals];
 			for(int i = 0; i < numNormals; i++) {
 				double x = Double.parseDouble(floats[i*3]);
-				double y = Double.parseDouble(floats[i*3 + 1]);
-				double z = Double.parseDouble(floats[i*3 + 2]);
+				double z = -Double.parseDouble(floats[i*3 + 1]);
+				double y = Double.parseDouble(floats[i*3 + 2]);
 				normals[i] = new Vector3d(x, y, z);
 			}
 			

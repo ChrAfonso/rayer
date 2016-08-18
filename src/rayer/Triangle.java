@@ -90,7 +90,7 @@ public class Triangle extends Plane {
 //				if(t < 0 || t > 1) return null;
 //				if(s + t > 1) return null;
 				
-				// TODO: if normals, interpolate normal
+				// TODO: if normals, interpolate normal - this way looks patchy
 				if(normals != null) {
 					Vector3d interpNormal = normals[0].scale(1-s-t).add(normals[1].scale(s)).add(normals[2].scale(t));
 //					planeHit.normal = interpNormal;
@@ -117,13 +117,6 @@ public class Triangle extends Plane {
 		} else {
 			return false;
 		}
-	}
-	
-	private Vector3d interpolateNormal(Vector3d point) {
-		if(normals == null) return this.normal;
-		
-		// TODO
-		return this.normal;
 	}
 	
 	public String toString() {
