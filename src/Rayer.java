@@ -72,6 +72,16 @@ public class Rayer {
 						saveImage("testrender_"+t+".png");
 						break;
 					
+					case KeyEvent.VK_F12:
+						// animate
+						for(int i = 0; i < 20; i++) {
+							initDummyScene(t);
+							renderScene();
+							saveImage("animation_"+t+".png");
+							t++;
+						}
+						break;
+						
 					case KeyEvent.VK_1:
 						Light light = scene.getLightByName("light1");
 						if(light != null) light.enabled = !light.enabled;
@@ -232,7 +242,8 @@ public class Rayer {
 		scene.addObject(tri2);
 */
 		Mesh monkey = readMeshFromDAE("models/monkey.dae");
-		monkey.rotate(Quaternion.fromAxisAngle(new Vector3d(1, 0, 0), Math.PI/2 * (0.1*t)));
+		Quaternion xrot = Quaternion.fromAxisAngle(new Vector3d(1, 0, 0), Math.PI*(0.05*t));
+		monkey.rotate(xrot);
 		monkey.material.diffuse = new Color(128, 88, 0);
 		scene.addObject(monkey);
 	}

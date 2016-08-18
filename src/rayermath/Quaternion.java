@@ -36,7 +36,7 @@ public class Quaternion {
 	}
 
 	public Vector3d rotate(Vector3d v) {
-		return this.mult(new Quaternion(v, 0)).mult(this.inverse()).v();
+		return this.mult(new Quaternion(v, 0)).mult(this.inverse()).v().normalize().scale(v.getLength());
 	}
 	
 	public Quaternion mult(Quaternion other) {

@@ -32,6 +32,8 @@ public class Triangle extends Plane {
 	
 	@Override
 	public void update() {
+		this.position = vertices[0];
+		
 		// compute edges and normal normal
 		this.edge1 = vertices[1].sub(vertices[0]);
 		this.edge2 = vertices[2].sub(vertices[1]);
@@ -49,7 +51,8 @@ public class Triangle extends Plane {
 	public void rotate(Quaternion quat, Vector3d center) {
 		for(int i = 0; i < 3; i++) {
 			// rotation around center
-			vertices[i] = vertices[i].sub(center).rotate(quat).add(center);
+//			vertices[i] = vertices[i].sub(center).rotate(quat).add(center);
+			vertices[i] = vertices[i].rotate(quat);
 		}
 		
 		if(normals != null) {
@@ -68,7 +71,7 @@ public class Triangle extends Plane {
 	public RayHit getRayHit(Ray ray) {
 		RayHit planeHit = super.getRayHit(ray);
 		if(planeHit != null) {
-//			if(isInside(planeHit.position)) {
+			if(isInside(planeHit.position)) {
 				// check bounds - source: http://geomalgorithms.com/a06-_intersect-2.html
 				Vector3d u = edge1;
 				Vector3d v = edge3.scale(-1);
@@ -83,20 +86,20 @@ public class Triangle extends Plane {
 				double s = (uv*wv - vv*wu) / denom;
 				double t = (uv*wu - uu*wv) / denom;
 				
-				if(s < 0 || s > 1) return null;
-				if(t < 0 || t > 1) return null;
-				if(s + t > 1) return null;
+//				if(s < 0 || s > 1) return null;
+//				if(t < 0 || t > 1) return null;
+//				if(s + t > 1) return null;
 				
 				// TODO: if normals, interpolate normal
 				if(normals != null) {
 					Vector3d interpNormal = normals[0].scale(1-s-t).add(normals[1].scale(s)).add(normals[2].scale(t));
-					planeHit.normal = interpNormal;
+//					planeHit.normal = interpNormal;
 				}
 				
 				return planeHit;
-//			} else {
-//				return null;
-//			}
+			} else {
+				return null;
+			}
 		} else return null;
 	}
 	

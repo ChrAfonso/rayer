@@ -116,7 +116,6 @@ public class DAEReader {
 					new Vector3d[] {positions[vi1], positions[vi2], positions[vi3]},
 					new Vector3d[] {normals[ni1], normals[ni2], normals[ni3]}
 				); // TODO range-checks
-				System.out.println(triangles[i]);
 			}
 			System.out.println("Done!");
 		} catch(Exception e) {
