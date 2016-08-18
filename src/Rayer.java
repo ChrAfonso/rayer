@@ -192,41 +192,49 @@ public class Rayer {
 		Sphere sphere4 = new Sphere("sphere4", new Vector3d(-2.7, 0.5, -3), 0.9);
 		sphere4.material.diffuse = Color.YELLOW;
 		scene.addObject(sphere4);
-*/
-		Plane plane1 = new Plane("plane1", new Vector3d(0, 0, 2), new Vector3d(0, 2, -1));
-		plane1.material.diffuse = Color.WHITE;
-		scene.addObject(plane1);
+
+		Plane[] planes = new Plane[5];
+		for(int i = 0; i < 5; i++) {
+			planes[i] = new Plane("plane"+i, new Vector3d(-2 + i, -1, 0), new Vector3d(0, 2, -2 + i));
+			planes[i].material.diffuse = Color.WHITE;
+			planes[i].doublesided = true;
+			planes[i].fixedWidth = 0.5;
+			scene.addObject(planes[i]);
+		}
 		//TEST:
-		RayHit rh = plane1.getRayHit(new Ray(new Vector3d(0, 1, 0), new Vector3d(0, -1, 0)));
+		RayHit rh = planes[0].getRayHit(new Ray(new Vector3d(0, 1, 0), new Vector3d(0, -1, 0)));
+		System.out.println(rh != null ? rh.position : "no hit.");
+		rh = planes[0].getRayHit(new Ray(new Vector3d(0, 4, 0), new Vector3d(0, -2, 1)));
 		System.out.println(rh != null ? rh.position : "no hit.");
 
 		Vector3d[] vertices = new Vector3d[3];
 		vertices[0] = new Vector3d(-1, 1, 0);
-		vertices[2] = new Vector3d(1, 1, 0);
 		vertices[1] = new Vector3d(0, 2, t);
+		vertices[2] = new Vector3d(1, 1, 0);
 		Triangle tri = new Triangle("tri", vertices);
 		tri.material.diffuse = Color.RED;
 		scene.addObject(tri);
 		
 		vertices = new Vector3d[3];
-		vertices[0] = new Vector3d(-2, 0, 0);
-		vertices[2] = new Vector3d(2, 0, 0);
-		vertices[1] = new Vector3d(-2, 0, 4);
+		vertices[0] = new Vector3d(-2, -2, 0);
+		vertices[1] = new Vector3d(-2, 1, 4);
+		vertices[2] = new Vector3d(2, -2, 0);
 		Triangle tri1 = new Triangle("tri1", vertices);
 		tri1.material.diffuse = Color.WHITE;
 		scene.addObject(tri1);
 		
 		vertices = new Vector3d[3];
 		vertices[0] = new Vector3d(-2, 1, 4);
-		vertices[2] = new Vector3d(2, 0.5, 0);
 		vertices[1] = new Vector3d(2, 1, 4);
+		vertices[2] = new Vector3d(2, -1, 0);
 		Triangle tri2 = new Triangle("tri2", vertices);
 		tri2.material.diffuse = Color.GREEN;
 		scene.addObject(tri2);
-		
+*/
 		Mesh monkey = readMeshFromDAE("models/monkey.dae");
+		monkey.rotate(Quaternion.fromAxisAngle(new Vector3d(1, 0, 0), Math.PI/2 * (0.1*t)));
 		monkey.material.diffuse = new Color(128, 88, 0);
-		//scene.addObject(monkey);
+		scene.addObject(monkey);
 	}
 
 	public void logSceneContents() {
@@ -234,14 +242,13 @@ public class Rayer {
 		System.out.println(scene.toString());
 	}
 	
-
 	private Vector<RayHit> getRayHits(Scene scene, Ray ray) {
 		Vector<RayHit> hits = new Vector<RayHit>();
 		
 		for(SceneObject object: scene.getObjects()) {
 			if(!object.enabled) continue;
 			
-			if(object.type == "Mesh") {
+			if(object.type == "Mesh" && ((Mesh)object).numTriangles > 0) {
 				// TEMP HACK distribute to triangles
 				Triangle[] triangles = ((Mesh)object).getTriangles();
 				for(int i = 0; i < triangles.length; i++) {
@@ -766,29 +773,3 @@ class GaussKernel extends ConvoKernel {
 
 }
 
-// TODO: repositioning should reposition all triangles
-class Mesh extends SceneObject {
-	int numTriangles = 0;
-	Triangle[] triangles;
-
-	public Mesh(String name, Vector3d position, Triangle[] triangles) {
-		super(name, position);
-
-		type = "Mesh";
-
-		if(triangles != null) {
-			this.triangles = triangles;
-			numTriangles = triangles.length;
-		} else System.out.println("WARNING: Creating empty Mesh!");
-	}
-	
-	// NOTE: getRayHit undelegated to Rayer, because of sorting
-	
-	public Triangle[] getTriangles() {
-		return triangles;
-	}
-
-	public String toString() {
-		return "Mesh { name: "+name+", triangles: "+numTriangles+"}";
-	}
-}

@@ -41,11 +41,7 @@ public class DAEReader {
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder builder = factory.newDocumentBuilder();
 			
-			System.out.println("Reading document...");
-			if(filename.indexOf("://") == -1) {
-				String pwd = Paths.get(".").toAbsolutePath().normalize().toString();
-				filename = pwd + File.separatorChar + filename;
-			}
+			System.out.println("Reading document "+filename+"...");
 			File file = new File(filename);
 			document = builder.parse(file);
 			document.normalizeDocument();
@@ -116,11 +112,11 @@ public class DAEReader {
 				int ni2 = Integer.parseInt(ps[i*6 + 3]);
 				int ni3 = Integer.parseInt(ps[i*6 + 5]);
 				
-				// DAE triangles are counterclockwise...
 				triangles[i] = new Triangle("tri"+i, 
-					new Vector3d[] {positions[vi1], positions[vi3], positions[vi2]},
-					new Vector3d[] {normals[ni1], normals[ni3], normals[ni2]}
+					new Vector3d[] {positions[vi1], positions[vi2], positions[vi3]},
+					new Vector3d[] {normals[ni1], normals[ni2], normals[ni3]}
 				); // TODO range-checks
+				System.out.println(triangles[i]);
 			}
 			System.out.println("Done!");
 		} catch(Exception e) {
